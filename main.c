@@ -58,42 +58,91 @@ struct cluster_t {
     struct obj_t *obj;
 };
 
-/*****************************************************************
- * Deklarace potrebnych funkci.
- *
- * PROTOTYPY FUNKCI NEMENTE
- *
- * IMPLEMENTUJTE POUZE FUNKCE NA MISTECH OZNACENYCH 'TODO'
- *
- */
+/// Not to change
+struct cluster_t *resize_cluster(struct cluster_t *c, int new_cap);
+void sort_cluster(struct cluster_t *c);
+static int obj_sort_compar(const void *a, const void *b);
+void print_cluster(struct cluster_t *c);
+void print_clusters(struct cluster_t *carr, int narr);
+void init_cluster(struct cluster_t *c, int cap);
+void clear_cluster(struct cluster_t *c);
+void append_cluster(struct cluster_t *c, struct obj_t obj);
+void merge_clusters(struct cluster_t *c1, struct cluster_t *c2);
+int remove_cluster(struct cluster_t *carr, int narr, int idx);
+float obj_distance(struct obj_t *o1, struct obj_t *o2);
+float cluster_distance(struct cluster_t *c1, struct cluster_t *c2);
+void find_neighbours(struct cluster_t *carr, int narr, int *first, int *second);
+int load_clusters(char *filename, struct cluster_t **arr);
 
-/*
- Inicializace shluku 'c'. Alokuje pamet pro cap objektu (kapacitu).
- Ukazatel NULL u pole objektu znamena kapacitu 0.
-*/
-void init_cluster(struct cluster_t *c, int cap)
+int main(int argc, char *argv[])
 {
+    struct cluster_t *clusters;
+    char *fileName = argv[1];
+    int number;
+    sscanf(argv[2], "%d", &number);
+
+    int count = load_clusters(fileName, &clusters);
+
+    int first = 0, second = 0;
+    while(count != number){
+        find_neighbours(clusters, count, &first, &second);
+        merge_clusters(&clusters[first], &clusters[second]);
+        count = remove_cluster(clusters, count, second);
+    }
+
+    print_clusters(clusters, count);
+
+    for (int i = 0; i < count; ++i) {
+        clear_cluster(&clusters[i]);
+    }
+
+    free(clusters);
+
+    return 0;
+}
+
+int load_clusters(char *filename, struct cluster_t **arr) {
+    assert(arr != NULL);
+    // ToDo: check input
+
+    FILE *file = fopen(filename, "r");
+    int count = 0, id = 0;
+    float x = 0, y = 0;
+
+    fscanf(file, "count=%d", &count);
+    *arr = (struct cluster_t *) malloc(sizeof(struct cluster_t) * count);
+
+    for (int i = 0; i < count; ++i) {
+        fscanf(file, "%d %f %f\n", &id, &x, &y);
+
+        struct cluster_t *cluster = &*(*arr+i);
+        init_cluster(cluster, 1);
+        cluster->size = 1;
+        cluster->obj->id = id;
+        cluster->obj->x = x;
+        cluster->obj->y = y;
+    }
+    fclose(file);
+
+    return count;
+}
+
+void init_cluster(struct cluster_t *c, int cap) {
     assert(c != NULL);
     assert(cap >= 0);
 
-    // TODO
-
+    c->size = 0;
+    c->capacity = cap;
+    c->obj = (cap == 0)?NULL:(struct obj_t *) malloc(sizeof(struct obj_t) * cap);
 }
 
-/*
- Odstraneni vsech objektu shluku a inicializace na prazdny shluk.
- */
-void clear_cluster(struct cluster_t *c)
-{
-    // TODO
+void clear_cluster(struct cluster_t *c) {
+    free(c->obj);
+    init_cluster(c, 0);
 }
 
-/// Chunk of cluster objects. Value recommended for reallocation.
 const int CLUSTER_CHUNK = 10;
 
-/*
- Zmena kapacity shluku 'c' na kapacitu 'new_cap'.
- */
 struct cluster_t *resize_cluster(struct cluster_t *c, int new_cap)
 {
     // TUTO FUNKCI NEMENTE
@@ -115,63 +164,47 @@ struct cluster_t *resize_cluster(struct cluster_t *c, int new_cap)
     return c;
 }
 
-/*
- Prida objekt 'obj' na konec shluku 'c'. Rozsiri shluk, pokud se do nej objekt
- nevejde.
- */
 void append_cluster(struct cluster_t *c, struct obj_t obj)
 {
-    // TODO
+    if(c->size == c->capacity) {
+        resize_cluster(c, c->capacity + 1);
+    }
+
+    c->obj[(c->size)++] = obj;
 }
 
-/*
- Seradi objekty ve shluku 'c' vzestupne podle jejich identifikacniho cisla.
- */
-void sort_cluster(struct cluster_t *c);
-
-/*
- Do shluku 'c1' prida objekty 'c2'. Shluk 'c1' bude v pripade nutnosti rozsiren.
- Objekty ve shluku 'c1' budou serazeny vzestupne podle identifikacniho cisla.
- Shluk 'c2' bude nezmenen.
- */
 void merge_clusters(struct cluster_t *c1, struct cluster_t *c2)
 {
     assert(c1 != NULL);
     assert(c2 != NULL);
 
-    // TODO
+    for (int i = 0; i < c2->size; ++i) {
+        append_cluster(c1, c2->obj[i]);
+    }
+    sort_cluster(c1);
+
 }
 
-/**********************************************************************/
-/* Prace s polem shluku */
-
-/*
- Odstrani shluk z pole shluku 'carr'. Pole shluku obsahuje 'narr' polozek
- (shluku). Shluk pro odstraneni se nachazi na indexu 'idx'. Funkce vraci novy
- pocet shluku v poli.
-*/
 int remove_cluster(struct cluster_t *carr, int narr, int idx)
 {
     assert(idx < narr);
     assert(narr > 0);
 
-    // TODO
+    clear_cluster(&carr[idx]);
+    carr[idx] = carr[narr-1];
+    init_cluster(&carr[narr-1], 0);
+
+
+    return narr - 1;
 }
 
-/*
- Pocita Euklidovskou vzdalenost mezi dvema objekty.
- */
-float obj_distance(struct obj_t *o1, struct obj_t *o2)
-{
+float obj_distance(struct obj_t *o1, struct obj_t *o2) {
     assert(o1 != NULL);
     assert(o2 != NULL);
 
-    // TODO
+    return sqrtf(powf((o2->x - o1->x), 2) + powf((o2->y - o1->y), 2));
 }
 
-/*
- Pocita vzdalenost dvou shluku.
-*/
 float cluster_distance(struct cluster_t *c1, struct cluster_t *c2)
 {
     assert(c1 != NULL);
@@ -179,23 +212,36 @@ float cluster_distance(struct cluster_t *c1, struct cluster_t *c2)
     assert(c2 != NULL);
     assert(c2->size > 0);
 
-    // TODO
+    float biggest_dist = 0, current_dist;
+    for(int i = 0; i < c1->size; i++) {
+        for(int j = 0; j < c2->size; j++) {
+            current_dist = obj_distance(&c1->obj[i], &c2->obj[j]);
+            if(current_dist > biggest_dist){
+                biggest_dist = current_dist;
+            }
+        }
+    }
+
+    return biggest_dist;
 }
 
-/*
- Funkce najde dva nejblizsi shluky. V poli shluku 'carr' o velikosti 'narr'
- hleda dva nejblizsi shluky. Nalezene shluky identifikuje jejich indexy v poli
- 'carr'. Funkce nalezene shluky (indexy do pole 'carr') uklada do pameti na
- adresu 'c1' resp. 'c2'.
-*/
-void find_neighbours(struct cluster_t *carr, int narr, int *c1, int *c2)
-{
+void find_neighbours(struct cluster_t *carr, int narr, int *first, int *second) {
     assert(narr > 0);
 
-    // TODO
+    float smallest_distance = 1000, current_distance = 0;
+    for(int i = 0; i < narr - 1; ++i) {
+        for(int j = i + 1; j < narr; ++j) {
+            current_distance = cluster_distance(&carr[i], &carr[j]);
+            if(current_distance < smallest_distance){
+                smallest_distance = current_distance;
+                *first = i;
+                *second = j;
+            }
+        }
+    }
+    //printf("F:%d S:%d ", *first, *second);
 }
 
-// pomocna funkce pro razeni shluku
 static int obj_sort_compar(const void *a, const void *b)
 {
     // TUTO FUNKCI NEMENTE
@@ -206,18 +252,12 @@ static int obj_sort_compar(const void *a, const void *b)
     return 0;
 }
 
-/*
- Razeni objektu ve shluku vzestupne podle jejich identifikatoru.
-*/
 void sort_cluster(struct cluster_t *c)
 {
     // TUTO FUNKCI NEMENTE
     qsort(c->obj, c->size, sizeof(struct obj_t), &obj_sort_compar);
 }
 
-/*
- Tisk shluku 'c' na stdout.
-*/
 void print_cluster(struct cluster_t *c)
 {
     // TUTO FUNKCI NEMENTE
@@ -229,37 +269,11 @@ void print_cluster(struct cluster_t *c)
     putchar('\n');
 }
 
-/*
- Ze souboru 'filename' nacte objekty. Pro kazdy objekt vytvori shluk a ulozi
- jej do pole shluku. Alokuje prostor pro pole vsech shluku a ukazatel na prvni
- polozku pole (ukalazatel na prvni shluk v alokovanem poli) ulozi do pameti,
- kam se odkazuje parametr 'arr'. Funkce vraci pocet nactenych objektu (shluku).
- V pripade nejake chyby uklada do pameti, kam se odkazuje 'arr', hodnotu NULL.
-*/
-int load_clusters(char *filename, struct cluster_t **arr)
-{
-    assert(arr != NULL);
-
-    // TODO
-}
-
-/*
- Tisk pole shluku. Parametr 'carr' je ukazatel na prvni polozku (shluk).
- Tiskne se prvnich 'narr' shluku.
-*/
-void print_clusters(struct cluster_t *carr, int narr)
-{
+void print_clusters(struct cluster_t *carr, int narr) {
     printf("Clusters:\n");
     for (int i = 0; i < narr; i++)
     {
         printf("cluster %d: ", i);
         print_cluster(&carr[i]);
     }
-}
-
-int main(int argc, char *argv[])
-{
-    struct cluster_t *clusters;
-
-    // TODO
 }
